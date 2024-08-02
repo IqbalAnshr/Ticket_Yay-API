@@ -1,0 +1,16 @@
+node_modules
+
+.DS_Store
+.DS_Store?
+*.swp
+*.swx
+*.DS_Store
+*.swo
+
+readme.md
+
+.vscode
+
+.env.*
+
+/logs
