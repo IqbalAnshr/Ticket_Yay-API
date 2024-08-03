@@ -1,16 +1,33 @@
-node_modules
+# Node modules
+node_modules/
 
+# MacOS files
 .DS_Store
 .DS_Store?
+*.DS_Store
+
+# Vim swap files
 *.swp
 *.swx
-*.DS_Store
 *.swo
 
+# Environment variables
+.env
+
+# Readme file (assuming you want to ignore it)
 readme.md
 
-.vscode
+# VS Code settings
+.vscode/
 
-.env.*
+# Logs
+/logs/
 
-/logs
+# Ignore anything in logs directory
+logs/
+
+# Other potential temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
