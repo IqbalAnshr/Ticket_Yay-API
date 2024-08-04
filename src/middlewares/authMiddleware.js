@@ -1,7 +1,6 @@
-const jwt = require('jsonwebtoken');
+const { verify } = require('../utils/token');
 const { body, validationResult } = require('express-validator');
 const ClientError = require('../errors/clientError');
-const { Console } = require('winston/lib/winston/transports');
 
 class AuthMiddleware {
 
@@ -19,7 +18,7 @@ class AuthMiddleware {
             }
 
             try {
-                const decoded = jwt.verify(token, process.env.JWT_KEY);
+                const decoded = verify(token, process.env.JWT_KEY);
 
                 if (decoded.type !== process.env.JWT_ACCESS ||
                     decoded.aud !== process.env.JWT_AUDIENCE ||
@@ -29,7 +28,7 @@ class AuthMiddleware {
 
                 req._id = decoded._id;
                 req.email = decoded.sub;
-                
+
                 next();
 
             } catch (error) {
@@ -94,9 +93,47 @@ class AuthMiddleware {
 
     }
 
+    static verifyRefreshToken(req, res, next) {
+        try {
+            const token = req.body.refreshToken;
+            if (!token) {
+                throw new ClientError(401, "Refresh token not provided");
+            }
+            const decoded = verify(token, process.env.JWT_KEY);
+            if (decoded.type !== process.env.JWT_REFRESH ||
+                decoded.aud !== process.env.JWT_AUDIENCE ||
+                decoded.iss !== process.env.JWT_ISSUER) {
+
+                return res.status(401).json({
+                    status: "error", message: "Invalid token type",
+                    links: [
+                        { rel: "self", href: req.originalUrl },
+                        { rel: "login", href: "/api/v1/auth/login" },
+                        { rel: "register", href: "/api/v1/auth/register" }
+                    ]
+                });
+            }
+
+            req._id = decoded._id;
+            req.email = decoded.sub;
+
+            next();
+
+        } catch (error) {
+
+            if (error.name == "ClientError") {
+                return res.status(401).json({
+                    status: "error", name: error.name, message: error.message, links: [
+                        { rel: "self", href: req.originalUrl },
+                        { rel: "login", href: "/api/v1/auth/login" },
+                        { rel: "register", href: "/api/v1/auth/register" }
+                    ]
+                });
+            }
+            return res.status(500).json({ status: "error", message: error.message });
+        }
+    }
+
 }
-
-
-
 
 module.exports = AuthMiddleware
