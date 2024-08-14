@@ -15,7 +15,7 @@ app.use(morganMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 mongoose.connect(dbConfig.uri)
   .then(() => logger.info('MongoDB connected'))
