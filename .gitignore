@@ -1,6 +1,9 @@
 # Node modules
 node_modules/
 
+#uploads directory
+uploads/
+
 # MacOS files
 .DS_Store
 .DS_Store?
