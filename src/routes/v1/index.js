@@ -8,7 +8,6 @@ router.get('/', (req, res) => {
     res.send('v1');
 });
 
-
 router.use('/auth', authRoute);
 router.use('/user', userRoute);
 
