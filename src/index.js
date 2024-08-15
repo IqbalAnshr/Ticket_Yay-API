@@ -1,4 +1,5 @@
 const express = require('express');
+const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const path = require('path');
 const logger = require("./utils/logger");
@@ -8,9 +9,11 @@ const routeV1 = require('./routes/v1');
 
 const dbConfig = require('../config/mongodb');
 const morganMiddleware = require("./middlewares/morganMiddleware");
+const ErrorMiddleware = require('./middlewares/errorMiddleware');
 
 const app = express();
 
+app.use(bodyParser.json());
 app.use(morganMiddleware);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -31,3 +34,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
 });
+
+app.use(ErrorMiddleware.errorHandler);
