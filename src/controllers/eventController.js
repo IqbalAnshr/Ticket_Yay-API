@@ -1,13 +1,11 @@
-const ClientError = require('../errors/clientError');
 const { success } = require('../utils/respon');
-const EventService = require('../services/eventService');
-const logger = require("../utils/logger");
+const eventService = require('../services/eventService');
 
 class EventController {
 
     async getEvents(req, res, next) {
         try {
-            const events = await EventService.getEvents(req.query);
+            const events = await eventService.getEvents(req.query);
             success(res, 'Events fetched successfully', 200, events);
         } catch (error) {
             next(error);
@@ -16,7 +14,7 @@ class EventController {
 
     async getEventById(req, res, next) {
         try {
-            const event = await EventService.getEventById(req.params.id);
+            const event = await eventService.getEventById(req.params.id);
             success(res, 'Event fetched successfully', 200, event);
         } catch (error) {
             next(error);
@@ -25,8 +23,8 @@ class EventController {
 
     async createEvent(req, res, next) {
         try {
-            await EventService.createEvent(req._id, req.body);
-            success(res, 'Event created successfully', 201);
+            const event = await eventService.createEvent(req._id, req.body);
+            success(res, 'Event created successfully', 201, { _id : event._id , name : event.name });
         } catch (error) {
             next(error);
         }
@@ -34,7 +32,7 @@ class EventController {
 
     async updateEvent(req, res, next) {
         try {
-            await EventService.updateEvent(req.params.id, req.body);
+            await eventService.updateEvent(req.params.id, req.body);
             success(res, 'Event updated successfully', 200);
         } catch (error) {
             next(error);
@@ -43,7 +41,7 @@ class EventController {
 
     async uploadEventImages(req, res, next) {
         try {
-            await EventService.uploadEventImages(req.params.id, req.event_images);
+            await eventService.uploadEventImages(req.params.id, req.event_images);
             success(res, 'Event images uploaded successfully', 200);
         } catch (error) {
             next(error);
@@ -52,7 +50,7 @@ class EventController {
 
     async deleteEventImages(req, res, next) {
         try {
-            const event = await EventService.deleteEventImages(req.params.id, req.params.image_name);
+            const event = await eventService.deleteEventImages(req.params.id, req.params.image_name);
             success(res, 'Event images deleted successfully', 200);
         } catch (error) {
             next(error);

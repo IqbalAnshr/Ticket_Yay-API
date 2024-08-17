@@ -34,9 +34,9 @@ class EventMiddleware {
             check('ticket_types')
                 .isArray({ min: 1 }).withMessage('At least one ticket type is required'),
 
-            check('ticket_types.*.type')
-                .notEmpty().withMessage('Ticket type is required')
-                .isIn(['regular', 'flash_sale', 'early_bird']).withMessage('Invalid ticket type'),
+            // check('ticket_types.*.type')
+            //     .notEmpty().withMessage('Ticket type is required')
+            //     .isIn(['regular', 'flash_sale', 'early_bird']).withMessage('Invalid ticket type'),
 
             check('ticket_types.*.price')
                 .isFloat({ gt: 0 }).withMessage('Price must be greater than 0'),
@@ -105,9 +105,9 @@ class EventMiddleware {
                 .optional()
                 .isArray().withMessage('Ticket types must be an array if provided'),
 
-            check('ticket_types.*.type')
-                .optional()
-                .isIn(['regular', 'flash_sale', 'early_bird']).withMessage('Invalid ticket type'),
+            // check('ticket_types.*.type')
+            //     .optional()
+            //     .isIn(['regular', 'flash_sale', 'early_bird']).withMessage('Invalid ticket type'),
 
             check('ticket_types.*.price')
                 .optional()

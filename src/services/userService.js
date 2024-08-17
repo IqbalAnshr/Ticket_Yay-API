@@ -2,29 +2,23 @@ const bcrypt = require('bcrypt');
 const ClientError = require('../errors/clientError');
 const User = require('../databases/models/user');
 const fs = require('fs/promises');
+const config = require('../../config/multer');
 
 
 class UserService {
-    async getProfile(authId, username) {
-        let user;
 
-        try {
-            if (!username) {
-                user = await User.findById(authId).select('-password');
-            } else {
-                user = await User.findOne({ username }).select('-password');
-            }
-        } catch (error) {
-            throw new Error('An error occurred while fetching the user');
-        }
+    async #findUserByUsernameOrAuthId(authenticatedUserId, targetUsername) {
+        const user = targetUsername
+            ? await User.findOne({ username: targetUsername })
+            : await User.findById(authenticatedUserId);
 
-        if (!user) {
-            throw new ClientError(404, 'User not found');
-        }
+        if (!user) throw new ClientError(404, 'User not found');
 
-        const isUserAuthenticated = authId && user._id.toString() === authId;
+        return user;
+    }
 
-        const userProfile = {
+    #createUserProfile(user, isUserAuthenticated) {
+        return {
             _id: user._id,
             name: user.name,
             username: user.username,
@@ -35,46 +29,39 @@ class UserService {
                 gender: user.gender
             })
         };
+    }
 
-        return { isUserAuthenticated, userProfile };
+    async getProfile(authenticatedUserId, targetUsername) {
+        const user = await this.#findUserByUsernameOrAuthId(authenticatedUserId, targetUsername);
+
+        const isUserAuthenticated = authenticatedUserId && user._id.toString() === authenticatedUserId;
+        const userProfile = this.#createUserProfile(user, isUserAuthenticated);
+
+        return  userProfile;
     }
 
     async updateProfile(userId, data) {
-        if (!data.first_name || !data.last_name) {
-            const user = await User.findById(userId).select('name');
-            data.first_name = user.name.first_name;
-            data.last_name = user.name.last_name;
-        }
-        await User.updateOne({ _id: userId }, {
-            $set: {
-                name: {
-                    first_name: data.first_name,
-                    last_name: data.last_name
-                },
-                username: data.username,
-                email: data.email,
-                birthdate: data.birthdate,
-                gender: data.gender,
-                updated_at: new Date()
-            }
-        });
+        const userData = {
+            name: {
+                first_name: data.first_name ?? (await User.findById(userId)).name.first_name,
+                last_name: data.last_name ?? (await User.findById(userId)).name.last_name
+            },
+            username: data.username,
+            email: data.email,
+            birthdate: data.birthdate,
+            gender: data.gender,
+            updated_at: new Date()
+        };
+
+        await User.updateOne({ _id: userId }, { $set: userData });
     }
 
     async updateProfilePicture(userId, profile_picture) {
         const user = await User.findById(userId);
-
-        const uploadPath = process.env.UPLOAD_DIRECTORY;
-
-        if (!uploadPath) {
-            throw new Error('UPLOAD_DIRECTORY is not set');
-        }
-
-        console.log("upload path", uploadPath);
-        console.log("profile picture", profile_picture);
+        const uploadPath = config.uploadDirectoryProfileImage;
 
         if (user.profile_picture) {
             const filePath = `${uploadPath}/${user.profile_picture}`;
-            console.log("file path", filePath);
             try {
                 await fs.access(filePath)
                 await fs.unlink(filePath);
@@ -84,17 +71,16 @@ class UserService {
         }
 
         user.profile_picture = profile_picture;
+        user.updated_at = new Date()
         await user.save();
     }
 
     async deleteProfilePicture(userId) {
         const user = await User.findById(userId);
-
-        const uploadPath = process.env.UPLOAD_DIRECTORY;
+        const uploadPath = config.uploadDirectoryProfileImage;
 
         if (user.profile_picture) {
             const filePath = `${uploadPath}/${user.profile_picture}`;
-            console.log("file path", filePath);
             try {
                 await fs.access(filePath)
                 await fs.unlink(filePath);
@@ -104,28 +90,21 @@ class UserService {
         }
 
         user.profile_picture = null;
+        user.updated_at = new Date()
         await user.save();
-        return
     }
 
     async changePassword(userId, oldPassword, newPassword) {
         const user = await User.findById(userId);
-        if (!user) {
-            throw new ClientError(404, 'User not found');
-        }
+        if (!user) throw new ClientError(404, 'User not found');
 
         const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
-        if (!isPasswordValid) {
-            throw new ClientError(400, 'Invalid password');
-        }
+        if (!isPasswordValid) throw new ClientError(400, 'Invalid password');
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-
         user.password = hashedPassword;
-
+        user.updated_at = new Date()
         await user.save();
-
-        return user;
     }
 }
 

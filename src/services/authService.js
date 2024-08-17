@@ -32,13 +32,10 @@ class AuthService {
 
     async login({ email, password }) {
         const user = await User.findOne({ email });
-        if (!user) {
-            throw new ClientError(400, 'User not found');
-        }
+        if (!user) throw new ClientError(400, 'User not found');
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            throw new ClientError(400, 'Invalid password');
-        }
+        if (!isPasswordValid) throw new ClientError(400, 'Invalid password');
 
         const jwtAccessTime = parseInt(process.env.JWT_ACCESS_TIME, 10);
         const jwtRefreshTime = parseInt(process.env.JWT_REFRESH_TIME, 10);
@@ -70,10 +67,7 @@ class AuthService {
     async refreshToken(_id, email, refreshToken) {
 
         const refreshTokenValue = await redisClient.GET(`${_id}:${refreshToken}`)
-
-        if (!refreshTokenValue) {
-            throw new ClientError(401, 'Unauthorized');
-        }
+        if (!refreshTokenValue) throw new ClientError(401, 'Unauthorized');
 
         const jwtAccessTime = parseInt(process.env.JWT_ACCESS_TIME, 10);
         const newAccesToken = sign({ _id: _id, type: process.env.JWT_ACCESS }, process.env.JWT_KEY, {

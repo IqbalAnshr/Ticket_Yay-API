@@ -1,5 +1,5 @@
-const { body } = require('express-validator');
-
+const { body, validationResult } = require('express-validator');
+const ClientError = require('../errors/clientError');
 const User = require('../databases/models/user');
 
 class UserMiddleware {
@@ -18,8 +18,7 @@ class UserMiddleware {
             body('birthdate')
                 .notEmpty()
                 .trim()
-                .withMessage('birthdate is required'),
-            body('birthdate')
+                .withMessage('birthdate is required')
                 .isISO8601()
                 .withMessage('Invalid date format')
         ];
@@ -30,8 +29,7 @@ class UserMiddleware {
             body('gender')
                 .notEmpty()
                 .trim()
-                .withMessage('gender is required'),
-            body('gender')
+                .withMessage('gender is required')
                 .isIn(['male', 'female'])
                 .withMessage('Invalid gender')
         ];
@@ -42,8 +40,7 @@ class UserMiddleware {
             body('email')
                 .notEmpty()
                 .trim()
-                .withMessage('Email is required'),
-            body('email')
+                .withMessage('Email is required')
                 .isEmail()
                 .normalizeEmail()
                 .withMessage('Invalid email address'),
@@ -68,12 +65,10 @@ class UserMiddleware {
             body(field)
                 .notEmpty()
                 .trim()
-                .withMessage(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`),
-            body(field)
+                .withMessage(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`)
                 .isLength({ min: 8 })
                 .trim()
-                .withMessage('Password must be at least 8 characters'),
-            body(field)
+                .withMessage('Password must be at least 8 characters')
                 .custom((value) => {
                     if (!value.match(/\d/) || !value.match(/[a-z]/) || !value.match(/[A-Z]/)) {
                         throw new Error('Passwords must have at least one number, uppercase, and lowercase character');
@@ -115,8 +110,7 @@ class UserMiddleware {
                 .optional()
                 .trim()
                 .notEmpty()
-                .withMessage('Birthdate cannot be empty when provided'),
-            body('birthdate')
+                .withMessage('Birthdate cannot be empty when provided')
                 .optional()
                 .isISO8601()
                 .withMessage('Invalid date format')
@@ -129,8 +123,7 @@ class UserMiddleware {
                 .optional()
                 .trim()
                 .notEmpty()
-                .withMessage('Gender cannot be empty when provided'),
-            body('gender')
+                .withMessage('Gender cannot be empty when provided')
                 .optional()
                 .isIn(['male', 'female'])
                 .withMessage('Invalid gender')
@@ -143,8 +136,7 @@ class UserMiddleware {
                 .optional()
                 .trim()
                 .notEmpty()
-                .withMessage('Email cannot be empty when provided'),
-            body('email')
+                .withMessage('Email cannot be empty when provided')
                 .optional()
                 .isEmail()
                 .normalizeEmail()
@@ -158,16 +150,13 @@ class UserMiddleware {
                 .optional()
                 .trim()
                 .notEmpty()
-                .withMessage('Username cannot be empty when provided'),
-            body('username')
+                .withMessage('Username cannot be empty when provided')
                 .optional()
                 .isLength({ min: 3 })
-                .withMessage('Username must be at least 3 characters'),
-            body('username')
+                .withMessage('Username must be at least 3 characters')
                 .optional()
                 .isAlphanumeric()
-                .withMessage('Username must be alphanumeric'),
-            body('username')
+                .withMessage('Username must be alphanumeric')
                 .optional()
                 .custom(async (value) => {
                     const user = await User.findOne({ username: value });
@@ -185,16 +174,13 @@ class UserMiddleware {
                 .optional()
                 .trim()
                 .notEmpty()
-                .withMessage('Phone number cannot be empty when provided'),
-            body('phone_number')
+                .withMessage('Phone number cannot be empty when provided')
                 .optional()
                 .isAlphanumeric()
-                .withMessage('Phone number must be alphanumeric'),
-            body('phone_number')
+                .withMessage('Phone number must be alphanumeric')
                 .optional()
                 .isLength({ min: 10 })
-                .withMessage('Phone number must be at least 10 characters'),
-            body('phone_number')
+                .withMessage('Phone number must be at least 10 characters')
                 .optional()
                 .custom(async (value) => {
                     const user = await User.findOne({ phone_number: value });
@@ -206,6 +192,14 @@ class UserMiddleware {
         ];
     }
 
+    handleValidationErrors(req, res, next) {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            const errorMessages = errors.array().map(err => err.msg);
+            return next(new ClientError(400, errorMessages));
+        }
+        next();
+    }
 
     // Public validation methods
     static userRegisterValidation() {
@@ -219,6 +213,7 @@ class UserMiddleware {
             ...instance.#validateEmailAvailability(),
             ...instance.#validatePassword(),
             ...instance.#validateConfirmPassword('password'),
+            instance.handleValidationErrors
         ];
     }
 
@@ -226,7 +221,8 @@ class UserMiddleware {
         const instance = new UserMiddleware();
         return [
             ...instance.#validateEmail(),
-            ...instance.#validatePassword('password')
+            ...instance.#validatePassword('password'),
+             instance.handleValidationErrors
         ];
     }
 
@@ -240,7 +236,8 @@ class UserMiddleware {
             ...instance.#validateOptionalUsername(),
             ...instance.#validateOptionalEmail(),
             ...instance.#validateEmailAvailability(),
-            ...instance.#validateOptionalPhoneNumber()
+            ...instance.#validateOptionalPhoneNumber(),
+             instance.handleValidationErrors
         ];
     }
 
@@ -250,6 +247,7 @@ class UserMiddleware {
             ...instance.#validatePassword('old_password'),
             ...instance.#validatePassword('new_password'),
             ...instance.#validateConfirmPassword('new_password'),
+             instance.handleValidationErrors
         ];
     }
 }
