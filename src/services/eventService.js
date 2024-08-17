@@ -17,7 +17,6 @@ class EventService {
             .limit(limit);
 
         return events;
-
     }
 
     async getEventById(id) {
@@ -27,6 +26,7 @@ class EventService {
                 select: 'name profile_picture email',
                 as: 'organizer'
             });
+            if (!event) throw new ClientError(404, 'Event not found');
             return event;
         } catch (error) {
             if (error.name === 'CastError') {
@@ -43,9 +43,10 @@ class EventService {
         return newEvent.save();
     }
 
-    async updateEvent(id, event) {
+    async updateEvent(id, updatedEvent) {
         try {
-            await Event.findByIdAndUpdate(id, event);
+            const event = await Event.findByIdAndUpdate(id, updatedEvent);
+            if (!event) throw new ClientError(404, 'Event not found');
         } catch (error) {
             if (error.name === 'CastError') {
                 throw new ClientError(404, 'Event not found');
@@ -56,7 +57,8 @@ class EventService {
 
     async uploadEventImages(id, images) {
         try {
-            await Event.findByIdAndUpdate(id, { $push: { images } });
+            const event = await Event.findByIdAndUpdate(id, { $push: { images } });
+            if (!event) throw new ClientError(404, 'Event not found');
         } catch (error) {
             if (error.name === 'CastError') {
                 throw new ClientError(404, 'Event not found');
@@ -67,18 +69,14 @@ class EventService {
 
     async deleteEventImages(id, images_name) {
         const event = await Event.findById(id);
-        if (!event) {
-            throw new ClientError(404, 'Event not found');
-        }
+        if (!event) throw new ClientError(404, 'Event not found');
 
         const uploadPath = `${config.uploadDirectoryEventImages}/${images_name}`;
 
-        if (!event.images.includes(images_name)) {
-            throw new ClientError(404, 'Image not found');
-        }
-
+        if (!event.images.includes(images_name)) throw new ClientError(404, 'Image not found');
+        
         try {
-            await fs.promises.unlink(uploadPath);
+            await fs.unlink(uploadPath);
         } catch (error) {
             if (error.code === 'ENOENT') {
                 throw new ClientError(404, 'Image not found');

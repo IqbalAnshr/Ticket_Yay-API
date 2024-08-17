@@ -1,7 +1,7 @@
 const multer = require('multer');
 const config = require('../../config/multer');
 const ClientError = require('../errors/clientError');
-fs = require('fs');
+const fs = require('fs');
 
 class MulterMiddleware {
     constructor(uploadDir) {
@@ -36,50 +36,12 @@ class MulterMiddleware {
         });
     }
 
-    static uploadMiddleware(req, res, next) {
-        const instance = new MulterMiddleware(config.uploadDirectoryProfileImage);
-        instance.upload.single('profile_picture')(req, res, (err) => {
-            if (err instanceof multer.MulterError) {
-                return res.status(400).json({
-                    status: 'error',
-                    message: `Multer error: ${err.message}`,
-                    links: [
-                        { rel: 'self', method: 'PUT', href: req.originalUrl },
-                        { rel: 'profile', method: 'GET', href: '/api/v1/user/profile' }
-                    ]
-                });
-            } else if (err) {
-                return res.status(400).json({
-                    status: 'error',
-                    message: `Unknown error: ${err.message}`,
-                    links: [
-                        { rel: 'self', method: 'PUT', href: req.originalUrl },
-                        { rel: 'profile', method: 'GET', href: '/api/v1/user/profile' }
-                    ]
-                });
-            }
-
-            if (!req.file) {
-                return res.status(400).json({
-                    status: 'error',
-                    message: 'No file uploaded',
-                    links: [
-                        { rel: 'self', method: 'PUT', href: req.originalUrl },
-                        { rel: 'profile', method: 'GET', href: '/api/v1/user/profile' }
-                    ]
-                });
-            }
-            req.profile_picture = req.file.filename;
-            next();
-        });
-    };
-
     static uploadProfilePictureMiddleware(req, res, next) {
         const instance = new MulterMiddleware(config.uploadDirectoryProfileImage);
         instance.upload.single('profile_picture')(req, res, (err) => {
-            if (!req.file) {
-                return next(new ClientError(400, 'No file uploaded'));
-            }
+            if (err) return next(new ClientError(400,  err.message));
+            if (!req.file) return next(new ClientError(400, 'No file uploaded'));
+
             req.profile_picture = req.file.filename;
             next();
         });
@@ -88,9 +50,9 @@ class MulterMiddleware {
     static uploadEventImagesMiddleware(req, res, next) {
         const instance = new MulterMiddleware(config.uploadDirectoryEventImages);
         instance.upload.array('event_images')(req, res, (err) => {
-            if (err instanceof multer.MulterError) {
-                return next(new ClientError(400, `Multer error: ${err.message}`));
-            }
+            if (err) return next(new ClientError(400,  err.message));
+            if (!req.files) return next(new ClientError(400, 'No file uploaded'));
+            
             req.event_images = req.files.map(file => file.filename);
             next();
         });

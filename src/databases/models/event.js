@@ -1,10 +1,10 @@
 const { Schema, model } = require('mongoose');
 
 const SocialMediaSchema = new Schema({
-    facebook: String,
-    twitter: String,
-    instagram: String,
-    website: String
+    facebook: { type : String, default: null },
+    twitter: { type : String, default: null },
+    instagram: { type : String, default: null },
+    website: { type : String, default : null }
 }, { _id: false });
 
 const TicketTypeSchema = new Schema({
