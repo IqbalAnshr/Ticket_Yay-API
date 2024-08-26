@@ -35,4 +35,14 @@ const EventSchema = new Schema({
     updated_at: { type: Date, default: Date.now }
 });
 
+EventSchema.pre('findOneAndUpdate', function(next) {
+    this.set({ updated_at: new Date() });
+    next();
+});
+
+EventSchema.pre('save', function(next) {
+    this.set({ updated_at: new Date() });
+    next();
+});
+
 module.exports = model('Event', EventSchema);
