@@ -1,75 +1,98 @@
-const { check, validationResult } = require('express-validator');
+const { body, check, validationResult } = require('express-validator');
 const Event = require('../databases/models/event');
 const ClientError = require('../errors/clientError');
 
 class EventMiddleware {
+
+    #checkName(isOptional = false) {
+        return [
+            check('name')
+                .optional(isOptional)
+                .notEmpty().withMessage('Event name is required')
+                .isLength({ max: 100 }).withMessage('Event name can be at most 100 characters'),
+        ];
+    }
+
+    #checkDescription(isOptional = false) {
+        return [
+            check('description')
+                .optional(isOptional)
+                .isLength({ max: 500 }).withMessage('Description can be at most 500 characters'),
+        ];
+    }
+
+    #checkDate(isOptional = false) {
+        return [
+            check('date')
+                .optional(isOptional)
+                .isISO8601().withMessage('Invalid date format'),
+        ];
+    }
+
+    #checkLocation(isOptional = false) {
+        return [
+            check('province')
+                .optional(isOptional)
+                .notEmpty().withMessage('Province is required'),
+            check('city')
+                .optional(isOptional)
+                .notEmpty().withMessage('City is required'),
+            check('address')
+                .optional(isOptional)
+                .notEmpty().withMessage('Address is required'),
+        ];
+    }
+
+    #checkSocialMedia() {
+        return [
+            check('facebook')
+                .optional()
+                .isURL().withMessage('Invalid Facebook URL'),
+            check('twitter')
+                .optional()
+                .isURL().withMessage('Invalid Twitter URL'),
+            check('instagram')
+                .optional()
+                .isURL().withMessage('Invalid Instagram URL'),
+            check('website')
+                .optional()
+                .isURL().withMessage('Invalid Website URL'),
+        ];
+    }
+
+    #checkTicketType(isOptional = false) {
+        return [
+            check('*.type')
+                .optional(isOptional)
+                .notEmpty().withMessage('Type is required')
+                .isLength({ max: 100 }).withMessage('Type name can be at most 100 characters'),
+            check('*.price')
+                .optional(isOptional)
+                .notEmpty().withMessage('Price is required')
+                .isFloat({ gt: 0 }).withMessage('Price must be greater than 0'),
+            check('*.limit')
+                .optional(isOptional)
+                .notEmpty().withMessage('Limit is required')
+                .isInt({ gt: 0 }).withMessage('Limit must be greater than 0'),
+            check('*.until')
+                .notEmpty().withMessage('Until date is required')
+                .isISO8601().withMessage('Invalid date format'),
+            check('*.status')
+                .optional(isOptional)
+                .notEmpty().withMessage('Status is required')
+                .isIn(['open', 'pending', 'closed', 'archived']).withMessage('Invalid status'),
+        ];
+    }
+
+
     // Validasi untuk membuat event baru
     validateCreateEvent() {
         return [
-            check('name')
-                .notEmpty().withMessage('Event name is required')
-                .isLength({ max: 100 }).withMessage('Event name can be at most 100 characters'),
-
-            check('description')
-                .optional()
-                .isLength({ max: 500 }).withMessage('Description can be at most 500 characters'),
-
-            check('date')
-                .notEmpty().withMessage('Event date is required')
-                .isISO8601().withMessage('Invalid date format'),
-
-            check('location.province')
-                .notEmpty().withMessage('Province is required'),
-
-            check('location.city')
-                .notEmpty().withMessage('City is required'),
-
-            check('location.address')
-                .notEmpty().withMessage('Address is required'),
-
-            // check('organizer')
-            //     .notEmpty().withMessage('Organizer is required')
-            //     .custom(value => mongoose.Types.ObjectId.isValid(value)).withMessage('Invalid organizer ID'),
-
-            check('ticket_types')
-                .isArray({ min: 1 }).withMessage('At least one ticket type is required'),
-
-            // check('ticket_types.*.type')
-            //     .notEmpty().withMessage('Ticket type is required')
-            //     .isIn(['regular', 'flash_sale', 'early_bird']).withMessage('Invalid ticket type'),
-
-            check('ticket_types.*.price')
-                .isFloat({ gt: 0 }).withMessage('Price must be greater than 0'),
-
-            check('ticket_types.*.limit')
-                .isInt({ gt: 0 }).withMessage('Limit must be greater than 0'),
-
-            check('ticket_types.*.until')
-                .notEmpty().withMessage('Until date is required')
-                .isISO8601().withMessage('Invalid date format'),
-
-            check('ticket_types.*.status')
-                .notEmpty().withMessage('Status is required')
-                .isIn(['active', 'sold_out']).withMessage('Invalid status'),
-
-            check('social_media')
-                .optional(),
-
-            check('social_media.facebook')
-                .optional()
-                .isURL().withMessage('Invalid Facebook URL'),
-
-            check('social_media.twitter')
-                .optional()
-                .isURL().withMessage('Invalid Twitter URL'),
-
-            check('social_media.instagram')
-                .optional()
-                .isURL().withMessage('Invalid Instagram URL'),
-
-            check('social_media.website')
-                .optional()
-                .isURL().withMessage('Invalid Website URL'),
+            ...this.#checkName(),
+            ...this.#checkDescription(),
+            ...this.#checkDate(),
+            ...this.#checkLocation(),
+            ...this.#checkSocialMedia(),
             this.handleValidationErrors
         ];
     }
@@ -77,72 +100,26 @@ class EventMiddleware {
     // Validasi untuk update event
     validateUpdateEvent() {
         return [
-            check('name')
-                .optional()
-                .isLength({ max: 100 }).withMessage('Event name can be at most 100 characters'),
+            ...this.#checkName(true),
+            ...this.#checkDescription(true),
+            ...this.#checkDate(true),
+            ...this.#checkLocation(true),
+            ...this.#checkSocialMedia(),
+            this.handleValidationErrors
+        ];
+    }
 
-            check('description')
-                .optional()
-                .isLength({ max: 500 }).withMessage('Description can be at most 500 characters'),
+    validateAddEventTicketType() {
+        return [
+            body().isArray({ min: 1 }).withMessage('At least one ticket type is required and should be an array'),
+            ...this.#checkTicketType(),
+            this.handleValidationErrors
+        ];
+    }
 
-            check('date')
-                .optional()
-                .isISO8601().withMessage('Invalid date format'),
-
-            check('location.province')
-                .optional()
-                .notEmpty().withMessage('Province is required if provided'),
-
-            check('location.city')
-                .optional()
-                .notEmpty().withMessage('City is required if provided'),
-
-            check('location.address')
-                .optional()
-                .notEmpty().withMessage('Address is required if provided'),
-
-            check('ticket_types')
-                .optional()
-                .isArray().withMessage('Ticket types must be an array if provided'),
-
-            // check('ticket_types.*.type')
-            //     .optional()
-            //     .isIn(['regular', 'flash_sale', 'early_bird']).withMessage('Invalid ticket type'),
-
-            check('ticket_types.*.price')
-                .optional()
-                .isFloat({ gt: 0 }).withMessage('Price must be greater than 0'),
-
-            check('ticket_types.*.limit')
-                .optional()
-                .isInt({ gt: 0 }).withMessage('Limit must be greater than 0'),
-
-            check('ticket_types.*.until')
-                .optional()
-                .isISO8601().withMessage('Invalid date format'),
-
-            check('ticket_types.*.status')
-                .optional()
-                .isIn(['active', 'sold_out']).withMessage('Invalid status'),
-
-            check('social_media')
-                .optional(),
-
-            check('social_media.facebook')
-                .optional()
-                .isURL().withMessage('Invalid Facebook URL'),
-
-            check('social_media.twitter')
-                .optional()
-                .isURL().withMessage('Invalid Twitter URL'),
-
-            check('social_media.instagram')
-                .optional()
-                .isURL().withMessage('Invalid Instagram URL'),
-
-            check('social_media.website')
-                .optional()
-                .isURL().withMessage('Invalid Website URL'),
+    validateUpdateEventTicketType() {
+        return [
+            ...this.#checkTicketType(true),
             this.handleValidationErrors
         ];
     }

@@ -11,7 +11,9 @@ router.post('/', AuthMiddleware.auth, EventMiddleware.validateCreateEvent(), Eve
 router.put('/:id', AuthMiddleware.auth, EventMiddleware.isOwnerEvent,EventMiddleware.validateUpdateEvent(), EventController.updateEvent); // update event
 router.post('/:id/image', AuthMiddleware.auth, EventMiddleware.isOwnerEvent,MulterMiddleware.uploadEventImagesMiddleware, EventController.uploadEventImages);
 router.delete('/:id/image/:image_name',AuthMiddleware.auth, EventMiddleware.isOwnerEvent, EventController.deleteEventImages); // delete event
-
+router.post('/:id/ticket_type', AuthMiddleware.auth, EventMiddleware.isOwnerEvent, EventMiddleware.validateAddEventTicketType(),EventController.addEventTicketTypes);
+router.put('/:id/ticket_type/:ticket_type_id', AuthMiddleware.auth, EventMiddleware.isOwnerEvent, EventMiddleware.validateUpdateEventTicketType(),EventController.updateEventTicketTypes);
+// router.delete('/:id/ticket_type/:ticket_type_id', AuthMiddleware.auth, EventMiddleware.isOwnerEvent, EventController.deleteEventTicketTypes);
 // router.delete('/:id', AuthMiddleware.auth, EventController.deleteEvent); // delete event
 
 

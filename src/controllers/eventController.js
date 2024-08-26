@@ -57,6 +57,32 @@ class EventController {
         }
     }
 
+    async addEventTicketTypes (req, res, next) {
+        try {
+            const event = await eventService.addEventTicketTypes(req.params.id, req.body);
+            success(res, 'Event ticket types added successfully', 200);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async updateEventTicketTypes (req, res, next) {
+        try {
+            const event = await eventService.updateEventTicketTypes(req.params.id, req.params.ticket_type_id, req.body);
+            success(res, 'Event ticket types updated successfully', 200);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    // async deleteEventTicketTypes (req, res, next) {
+    //     try {
+    //         const event = await eventService.deleteEventTicketTypes(req.params.id, req.params.ticket_type_id);
+    //         success(res, 'Event ticket types deleted successfully', 200);
+    //     } catch (error) {
+    //         next(error);
+    //     }
+    // }
 
 }
 
