@@ -136,6 +136,7 @@ class EventMiddleware {
     async isOwnerEvent(req, res, next) {
         try {
             const event = await Event.findById(req.params.id, { _id: 1, organizer: 1 });
+            if (!event) return next(new ClientError(404, 'Event not found'));
             if (req._id != event.organizer) {
                 return next(new ClientError(403, 'You are not the owner of this event'));
             }
@@ -147,6 +148,29 @@ class EventMiddleware {
             next(error);
         }
     }
+
+    async validateTicketType(req, res, next) {
+        try {
+            const eventId = req.params.id;
+            const ticketTypeId = req.params.ticket_type_id;
+            const event = await Event.findById(eventId);
+            if (!event) return next(new ClientError(404, 'Event not found'));
+
+            const ticketType = event.ticket_types.find(t => t._id.toString() === ticketTypeId);
+            if (!ticketType) return next(new ClientError(404, 'Ticket type not found'));
+            if (ticketType.status !== 'open') return next(new ClientError(400, 'Ticket type is not open yet'));
+            if (ticketType.until < new Date()) return next(new ClientError(400, 'Ticket type has expired'));
+            if (ticketType.limit === ticketType.sold) {
+                ticketType.status = 'closed';
+                await event.save();
+                return next(new ClientError(400, 'Ticket type is sold out'))
+            };
+            req.ticketType = ticketType;
+            next();
+        } catch (error) {
+            next(error);
+        }
+    };
 }
 
 module.exports = new EventMiddleware();
