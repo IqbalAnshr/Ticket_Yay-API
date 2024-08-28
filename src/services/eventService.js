@@ -5,14 +5,42 @@ const config = require('../../config/multer');
 const redisClient = require('./redisService');
 
 class EventService {
-    async getEvents(query) {
-        const { search = '', city = '', page = 1, limit = 15 } = query;
-        const offset = (page - 1) * limit;
 
-        const events = await Event.find({
-            name: { $regex: search, $options: 'i' },
-            'location.city': { $regex: city, $options: 'i' },
-        })
+    #calculatePagination(page, limit, maxPages = 10) {
+        const effectivePage = Math.min(page, maxPages);
+        const offset = (effectivePage - 1) * limit;
+        return offset;
+    }
+
+    #createCaseInsensitiveRegex(value) {
+        return { $regex: value, $options: 'i' };
+    }
+
+    #createPriceRangeFilter(minPrice, maxPrice) {
+        const priceFilter = {};
+        if (minPrice) priceFilter.$gte = minPrice;
+        if (maxPrice) priceFilter.$lte = maxPrice;
+        return { $elemMatch: { price: priceFilter } };
+    }
+
+    #createDateRangeFilter(month) {
+        const startOfMonth = new Date(`${month}-01T00:00:00.000Z`);
+        const endOfMonth = new Date(startOfMonth);
+        endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+        return { $gte: startOfMonth, $lt: endOfMonth };
+    }
+
+    async getEvents(query) {
+        const { search = '', city = '', page = 1, limit = 15, minPrice, maxPrice, month } = query;
+        const offset = this.#calculatePagination(page, limit);
+
+        const filterQuery = {};
+        if (search) filterQuery.name = this.#createCaseInsensitiveRegex(search);
+        if (city) filterQuery['location.city'] = this.#createCaseInsensitiveRegex(city);
+        if (minPrice || maxPrice) filterQuery.ticket_types = this.#createPriceRangeFilter(minPrice, maxPrice);
+        if (month) filterQuery.date = this.#createDateRangeFilter(month);
+
+        const events = await Event.find(filterQuery)
             .sort({ created_at: -1 })
             .skip(offset)
             .limit(limit);
@@ -40,6 +68,42 @@ class EventService {
         }
     }
 
+    async getUserEvents(authId, query) {
+        const { search = '', city = '', page = 1, limit = 15, month } = query;
+        const offset = this.#calculatePagination(page, limit);
+        try {
+            const filterQuery = { organizer: authId };
+            if (search) filterQuery.name = this.#createCaseInsensitiveRegex(search);
+            if (city) filterQuery['location.city'] = this.#createCaseInsensitiveRegex(city);
+            if (month) filterQuery.date = this.#createDateRangeFilter(month);
+
+            const events = await Event.find(filterQuery)
+                .sort({ created_at: -1 })
+                .skip(offset)
+                .limit(limit);
+
+            return events;
+        } catch (error) {
+            if (error.name === 'CastError') {
+                throw new ClientError(404, 'Event not found');
+            }
+            throw error;
+        }
+    }
+
+    async getUserEventById(authId, eventId) {
+        try {
+            const event = await Event.findOne({ _id: eventId, organizer: authId });
+            if (!event) throw new ClientError(404, 'Event not found');
+            return event;
+        } catch (error) {
+            if (error.name === 'CastError') {
+                throw new ClientError(404, 'Event not found');
+            }
+            throw error;
+        }
+    }
+
     async createEvent(authId, event) {
         const { name, description, date, province, city, address, facebook, twitter, instagram, website } = event;
         const newEvent = new Event({
@@ -48,7 +112,7 @@ class EventService {
             date,
             location: { province, city, address },
             social_media: { facebook, twitter, instagram, website },
-            images: null,
+            images: [],
             organizer: authId
         });
         return await newEvent.save();
@@ -104,11 +168,9 @@ class EventService {
     async deleteEventImages(id, images_name) {
         const event = await Event.findById(id);
         if (!event) throw new ClientError(404, 'Event not found');
+        if (!Array.isArray(event.images) || !event.images.includes(images_name)) throw new ClientError(404, 'Image not found');
 
         const uploadPath = `${config.uploadDirectoryEventImages}/${images_name}`;
-
-        if (!event.images.includes(images_name)) throw new ClientError(404, 'Image not found');
-
         try {
             await fs.unlink(uploadPath);
         } catch (error) {
@@ -188,6 +250,50 @@ class EventService {
     //         throw error;
     //     }
     // }
+
+    async incrementSoldTicket(eventId, ticketTypeId) {
+        try {
+            const result = await Event.updateOne(
+                {
+                    _id: eventId,
+                    'ticket_types._id': ticketTypeId,
+                    $expr: { $lt: ['$ticket_types.sold', '$ticket_types.limit'] }
+                },
+                {
+                    $inc: { 'ticket_types.$.sold': 1 }
+                }
+            );
+
+            if (result.matchedCount === 0) {
+                throw new Error('Failed to increment sold tickets. Either event or ticket type not found, or ticket limit reached.');
+            }
+        } catch (error) {
+            throw new Error(`Could not increment sold tickets: ${error.message}`);
+        }
+    }
+
+
+    async decrementSoldTicket(eventId, ticketTypeId) {
+        try {
+            const result = await Event.updateOne(
+                {
+                    _id: eventId,
+                    'ticket_types._id': ticketTypeId,
+                    $expr: { $gt: ['$ticket_types.sold', 0] } // Ensure sold is greater than 0
+                },
+                {
+                    $inc: { 'ticket_types.$.sold': -1 }
+                }
+            );
+
+            if (result.matchedCount === 0) {
+                throw new Error('Failed to decrement sold tickets. Either event or ticket type not found, or ticket sold count is already zero.');
+            }
+        } catch (error) {
+            throw new Error(`Could not decrement sold tickets: ${error.message}`);
+        }
+    }
+
 }
 
 module.exports = new EventService();
